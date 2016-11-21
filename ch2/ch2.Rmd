@@ -1,0 +1,207 @@
+---
+title: "Single Parameter Model"
+author: "David Huang"
+date: "2016/11/21"
+output:
+    html_document:
+    fig_width: 6
+    fig_height: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Beta-Binomial Model
+***
+#### Model Description
+Let $y_1,\cdots,y_n$ be an i.i.d. random sample from $Ber(\theta)$. Then, we can summarize the sample by $y=\sum_{i=1}^n y_i \sim Bin(n,\theta)$.
+
+* Prior distribution: $\theta\sim Beta(\alpha,\beta)$
+
+* Likelihood of $\theta$: $\mathcal{L}(\theta|y) = p(y|\theta)=\binom{n}{y}\theta^y(1-\theta)^{n-y}$
+
+* Posterior distribution: $p(\theta|y) \propto p(\theta)p(y|\theta) \propto 
+\theta^{\alpha-y-1}(1-\theta)^{\beta+n-y-1}$
+
+Hence, the posterior distribution of $\theta$ is $\theta|y\sim Beta(\alpha+y,\beta + n - y)$.
+
+***
+
+#### Example: Female Birth
+
+Consider the estimation of the sex ratio within a population $\theta$ of human births. Assume a uniform prior $\theta\sim Beta(1,1)$. We first draw the density of the prior distribution.
+
+```{r}
+library(ggplot2)
+
+# Assume the Uniform Prior
+alpha <- 1
+beta <- 1
+
+# Calculate the Prior Density 
+theta <- seq(0, 1, 0.001)
+prior_dens <- dbeta(theta, alpha, beta)
+
+# Plot Prior Density
+
+ggplot(data.frame(theta, prior_dens), aes(x = theta, y = prior_dens)) +
+  geom_line(color = 'deepskyblue3', size = 1) +
+  theme_bw() +
+  labs(x ='Theta', y = 'Density',
+       title = 'Prior Density of Theta (Uniform Prior)')
+
+```
+
+Now, consider the new birth in this year. 437 girls and 543 boys have been observed, thus the posterior distribution of $\theta|y$ is $Beta(438,544)$. By simulation, the 95% posterior credible interval of $\theta$ is $[0.41, 0.48]$
+
+```{r warning=FALSE}
+# Calculate the Posterior Density 
+theta <- seq(0, 1, 0.001)
+post_dens <- dbeta(theta, alpha + 437, beta + 544)
+
+# Calculate the 95% Credible Interval
+up_cred <- qbeta(0.025, alpha + 437, beta + 544)
+low_cred <- qbeta(0.975, alpha + 437, beta + 544)
+
+# Plot Posterior Density
+
+ggplot(data.frame(theta, post_dens), aes(x = theta, y = post_dens)) +
+  geom_line(color = 'deepskyblue3', size = 1) +
+  geom_vline(xintercept = up_cred, linetype='dotted', size = 1) +
+  geom_vline(xintercept = low_cred, linetype='dotted', size = 1) +
+  theme_bw() + xlim(0.35, 0.55) +
+  labs(x ='Theta', y = 'Density',
+       title = paste('Prosterior Density of Theta, with 95% C.I.  [',
+                     round(up_cred, 2), round(low_cred,2), ']'))
+```
+
+Now, if we consider an informative prior $\mathbb{E}(\theta)=\frac{\alpha}{\alpha + \beta} = 0.485$ and $Var(\theta) = \alpha + \beta = 200$, then the prior and posterior distributions are shown below.
+
+```{r warning=FALSE}
+library(ggplot2)
+
+# Assume an Informative Prior
+alpha <- 0.485*200
+beta <- (1-0.485)*200
+
+# Calculate the Prior Density 
+theta <- seq(0, 1, 0.001)
+prior_dens <- dbeta(theta, alpha, beta)
+post_dens <- dbeta(theta, alpha + 437, beta + 544)
+
+
+# Plot Prior Density
+library(reshape2)
+dens <- data.frame(theta, prior_dens, post_dens)
+dens <- melt(dens, id = 'theta')
+ggplot(dens) +
+  geom_line(aes(x = theta, y = value, colour = variable), size = 1) +
+  scale_colour_manual(values = c('deepskyblue3', 'firebrick3'))+
+  theme_bw() + xlim(0.35, 0.65) +
+  labs(x ='Theta', y = 'Density',
+       title = 'Prior versus Posterior Density of Theta')
+```
+
+***
+
+### Gamma-Poisson Model
+***
+#### Model Description
+
+Let $y_1,\cdots,y_n$ be an i.i.d. random sample from $Poisson(\theta)$.
+
+* Prior distribution: $\theta\sim Gamma(\alpha,\beta)$ (Conjugate Prior)
+
+* Likelihood of $\theta$: $\mathcal{L}(\theta|y) = p(y|\theta)=\prod_{i=1}^n\frac{\theta^y_i e^{-\theta}}{y_i!} \propto \theta^{\sum y_i} e^{-n\theta}$
+
+* Posterior distribution: $p(\theta|y) \propto p(\theta)p(y|\theta) \propto 
+\theta^{\alpha-\sum y_i-1}e^{}(1-\theta)^{-(\beta+n)\theta}$
+
+Hence, the posterior distribution of $\theta$ is $\theta|y\sim Gamma\left(\alpha+\sum y_i,\beta + n\right)$. Note that if $\alpha,\beta\in\mathbf{N}$, then the prior predictive distribution of $y$ is $p(y)=\frac{p(y|\theta) p(\theta)}{p(\theta|y)} = \frac{\Gamma(\alpha+y)\beta^\alpha}{\Gamma(\alpha)y!(1+\beta)^{\alpha+y}} = \binom{\alpha+y-1}{y}\left(\frac{\beta}{\beta+1}\right)^\alpha\left(\frac{1}{\beta+1}\right)^y$, that is, $y\sim NegBin(\alpha,\beta)$.
+
+***
+
+#### Example: Insurance Application
+
+Consider a special case of Gamma-Poisson mixture model. Let $T$ be a given time (e.g. total number of days).Assume the number of claims $Y$ required fromt time $0$ to $T$ follows a $Poisson(\theta T)$ distribution, where $\theta \sim Gamma(\lambda\cdot 1, \lambda)$. (Note $\lambda\cdot 1$ is the prior knowledge of the number of claims occured in one day, and $\lambda$ is the prior knolwdge of claim frequency.) Now, assume the full time period is 30 days, and we observed $120$ claims occured during these 30 days.
+
+Case 1: $\lambda = 1$
+
+```{r warning=FALSE}
+library(ggplot2)
+
+# Assume an Informative Prior
+lambda <- 1
+
+# Calculate the Prior Density 
+theta <- seq(0, 5, 0.001)
+prior_dens <- dgamma(theta, lambda, lambda)
+post_dens <- dgamma(theta, lambda + 120/30, lambda + 1)
+
+
+# Plot Prior Density
+library(reshape2)
+dens <- data.frame(theta, prior_dens, post_dens)
+dens <- melt(dens, id = 'theta')
+ggplot(dens) +
+  geom_line(aes(x = theta, y = value, colour = variable), size = 1) +
+  scale_colour_manual(values = c('deepskyblue3', 'firebrick3'))+
+  theme_bw() +
+  labs(x ='Theta', y = 'Density',
+       title = 'Prior versus Posterior Density of Theta')
+```
+
+Case 2: $\lambda = 5$
+
+```{r warning=FALSE}
+library(ggplot2)
+
+# Assume an Informative Prior
+lambda <- 5
+
+# Calculate the Prior Density 
+theta <- seq(0, 5, 0.001)
+prior_dens <- dgamma(theta, lambda, lambda)
+post_dens <- dgamma(theta, lambda + 120/30, lambda + 1)
+
+
+# Plot Prior Density
+library(reshape2)
+dens <- data.frame(theta, prior_dens, post_dens)
+dens <- melt(dens, id = 'theta')
+ggplot(dens) +
+  geom_line(aes(x = theta, y = value, colour = variable), size = 1) +
+  scale_colour_manual(values = c('deepskyblue3', 'firebrick3'))+
+  theme_bw() +
+  labs(x ='Theta', y = 'Density',
+       title = 'Prior versus Posterior Density of Theta')
+```
+
+Case 3: $\lambda = 10$
+
+```{r warning=FALSE}
+library(ggplot2)
+
+# Assume an Informative Prior
+lambda <- 10
+
+# Calculate the Prior Density 
+theta <- seq(0, 5, 0.001)
+prior_dens <- dgamma(theta, lambda, lambda)
+post_dens <- dgamma(theta, lambda + 120/30, lambda + 1)
+
+
+# Plot Prior Density
+library(reshape2)
+dens <- data.frame(theta, prior_dens, post_dens)
+dens <- melt(dens, id = 'theta')
+ggplot(dens) +
+  geom_line(aes(x = theta, y = value, colour = variable), size = 1) +
+  scale_colour_manual(values = c('deepskyblue3', 'firebrick3'))+
+  theme_bw() +
+  labs(x ='Theta', y = 'Density',
+       title = 'Prior versus Posterior Density of Theta')
+```
+
+***
